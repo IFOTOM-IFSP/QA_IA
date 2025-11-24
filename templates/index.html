@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>IFOTOM QA – Cuvette Segmentation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <style>
+      :root {
+        /* ===== PALETA IFOTOM ===== */
+        --brand-primary: #9d4edd;
+        --brand-secondary: #6a0dad;
+        --brand-light: #cba6e8;
+        --brand-bg-light: #f4ecf5;
+
+        --success-main: #28a745;
+        --success-bg-dark: rgba(40, 167, 69, 0.25);
+        --danger-main: #dc3545;
+        --danger-bg-dark: rgba(220, 53, 69, 0.25);
+        --warning-main: #ffc107;
+        --warning-bg-dark: rgba(255, 193, 7, 0.25);
+
+        --neutral-dark-bg: #121212;
+        --neutral-dark-card: #1e1e1e;
+        --neutral-dark-text: #ecedee;
+        --neutral-dark-text-secondary: #b0b3b8;
+        --neutral-dark-border: rgba(255, 255, 255, 0.16);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top, rgba(157, 78, 221, 0.18), transparent 55%),
+          radial-gradient(circle at bottom, rgba(106, 13, 173, 0.25), transparent 60%),
+          linear-gradient(180deg, #13081c 0%, var(--neutral-dark-bg) 38%, #050208 100%);
+        color: var(--neutral-dark-text);
+        min-height: 100vh;
+      }
+
+      body.has-result {
+        background:
+          radial-gradient(circle at top, rgba(157, 78, 221, 0.1), transparent 55%),
+          linear-gradient(180deg, #12091e 0%, #101010 45%, #050308 100%);
+      }
+
+      header {
+        border-bottom: 1px solid rgba(157, 78, 221, 0.6);
+        background: linear-gradient(
+          to right,
+          rgba(18, 18, 18, 0.96),
+          rgba(25, 16, 45, 0.96),
+          rgba(42, 18, 75, 0.96)
+        );
+        box-shadow: 0 16px 35px rgba(0, 0, 0, 0.9);
+        backdrop-filter: blur(14px);
+        position: sticky;
+        top: 0;
+        z-index: 20;
+      }
+
+      .header-inner {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 12px 18px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .header-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .logo-pill {
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        background: radial-gradient(circle at 30% 30%, #ffffff, #f4ecf5 36%, #9d4edd 92%);
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        box-shadow:
+          0 0 0 1px rgba(157, 78, 221, 0.6),
+          0 0 18px rgba(157, 78, 221, 0.95);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        color: #1e1e1e;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+      }
+
+      .header-title {
+        font-size: 1.06rem;
+        font-weight: 600;
+      }
+
+      .header-subtitle-main {
+        font-size: 0.82rem;
+        color: var(--neutral-dark-text-secondary);
+      }
+
+      .header-badge {
+        font-size: 0.75rem;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(203, 166, 232, 0.65);
+        background: radial-gradient(circle at top left, #2a1544, #17111e 70%);
+        color: #f4ecf5;
+        white-space: nowrap;
+      }
+
+      main {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 18px 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      @media (min-width: 940px) {
+        .layout {
+          grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.3fr);
+          align-items: stretch;
+        }
+      }
+
+      .card {
+        position: relative;
+        border-radius: 18px;
+        padding: 16px 18px 18px;
+        background:
+          radial-gradient(circle at top left, rgba(157, 78, 221, 0.16), transparent 55%),
+          linear-gradient(145deg, #1a1124, #1a121f);
+        border: 1px solid var(--neutral-dark-border);
+        box-shadow: 0 18px 55px rgba(0, 0, 0, 0.9);
+        overflow: hidden;
+      }
+
+      .card--upload::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          circle at -10% 0%,
+          rgba(203, 166, 232, 0.18),
+          transparent 55%
+        );
+        opacity: 0.85;
+        pointer-events: none;
+      }
+
+      .card--result {
+        background:
+          radial-gradient(circle at top right, rgba(3, 169, 244, 0.1), transparent 55%),
+          linear-gradient(145deg, #18111f, #211327);
+      }
+
+      body.has-result .card--result {
+        background: #1e1e1e;
+        border-color: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.85);
+      }
+
+      .card h2 {
+        font-size: 0.98rem;
+        margin: 0 0 4px;
+      }
+
+      .card p {
+        font-size: 0.83rem;
+        color: var(--neutral-dark-text-secondary);
+        margin: 0 0 12px;
+      }
+
+      .form-group {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        z-index: 1;
+      }
+
+      .file-drop {
+        border-radius: 14px;
+        padding: 18px 12px;
+        text-align: center;
+        cursor: pointer;
+        transition:
+          border-color 0.16s ease,
+          background 0.16s ease,
+          box-shadow 0.16s ease,
+          transform 0.08s ease;
+        border: 1px dashed rgba(203, 166, 232, 0.7);
+        background: radial-gradient(
+          circle at top,
+          rgba(15, 23, 42, 0.9),
+          rgba(18, 12, 30, 0.98)
+        );
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.8);
+      }
+
+      .file-drop:hover {
+        border-color: var(--brand-primary);
+        background: radial-gradient(
+          circle at top,
+          rgba(157, 78, 221, 0.18),
+          rgba(15, 23, 42, 0.98)
+        );
+        box-shadow:
+          0 10px 26px rgba(157, 78, 221, 0.55),
+          0 0 0 1px rgba(203, 166, 232, 0.6);
+        transform: translateY(-1px);
+      }
+
+      .file-drop span {
+        display: block;
+      }
+
+      .file-drop .title {
+        font-size: 0.88rem;
+        font-weight: 500;
+      }
+
+      .file-drop .hint {
+        font-size: 0.76rem;
+        color: var(--neutral-dark-text-secondary);
+        margin-top: 2px;
+      }
+
+      input[type="file"] {
+        display: none;
+      }
+
+      .selected-file {
+        font-size: 0.75rem;
+        color: var(--neutral-dark-text-secondary);
+        word-break: break-all;
+        margin-top: 4px;
+      }
+
+      .btn {
+        margin-top: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 18px;
+        border-radius: 999px;
+        border: none;
+        font-size: 0.84rem;
+        font-weight: 500;
+        background: linear-gradient(
+          135deg,
+          var(--brand-primary),
+          var(--brand-secondary)
+        );
+        color: #ffffff;
+        cursor: pointer;
+        transition:
+          transform 0.08s ease,
+          box-shadow 0.1s ease,
+          opacity 0.15s ease;
+        box-shadow:
+          0 12px 35px rgba(106, 13, 173, 0.9),
+          0 0 0 1px rgba(203, 166, 232, 0.25);
+      }
+
+      .btn:hover {
+        transform: translateY(-1px);
+        box-shadow:
+          0 16px 42px rgba(106, 13, 173, 0.95),
+          0 0 0 1px rgba(203, 166, 232, 0.4);
+      }
+
+      .btn:active {
+        transform: translateY(0);
+        box-shadow:
+          0 9px 26px rgba(106, 13, 173, 0.9),
+          0 0 0 1px rgba(203, 166, 232, 0.4);
+      }
+
+      .error-box {
+        margin-top: 10px;
+        font-size: 0.78rem;
+        color: #f8d7da;
+        background: var(--danger-bg-dark);
+        border-radius: 10px;
+        border: 1px solid rgba(248, 113, 113, 0.9);
+        padding: 8px 10px;
+        backdrop-filter: blur(4px);
+      }
+
+      .result-header {
+        font-size: 0.78rem;
+        color: var(--neutral-dark-text-secondary);
+        margin-bottom: 10px;
+      }
+
+      .qa-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+
+      .qa-badge {
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 0.76rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .qa-badge--success {
+        background: var(--success-bg-dark);
+        border: 1px solid rgba(129, 199, 132, 0.9);
+        color: #e8f5e9;
+      }
+
+      .qa-badge--warning {
+        background: var(--warning-bg-dark);
+        border: 1px solid rgba(255, 235, 151, 0.95);
+        color: #fffbea;
+      }
+
+      .qa-badge--danger {
+        background: var(--danger-bg-dark);
+        border: 1px solid rgba(248, 113, 113, 0.95);
+        color: #f8d7da;
+      }
+
+      .qa-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+
+      .per-class-table {
+        margin-top: 4px;
+        font-size: 0.78rem;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: rgba(15, 23, 42, 0.95);
+      }
+
+      .per-class-row {
+        display: grid;
+        grid-template-columns: 1.8fr 1fr;
+        padding: 6px 8px;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.9);
+      }
+
+      .per-class-row.header {
+        font-weight: 600;
+        background: rgba(15, 23, 42, 0.98);
+      }
+
+      .per-class-row:last-child {
+        border-bottom: none;
+      }
+
+      .plot-wrapper {
+        position: relative;
+        margin-top: 12px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        background:
+          radial-gradient(circle at top left, rgba(157, 78, 221, 0.1), transparent 55%),
+          linear-gradient(145deg, #111111, #1a1624);
+        padding: 10px;
+        box-shadow:
+          0 18px 45px rgba(0, 0, 0, 0.9),
+          0 0 0 1px rgba(31, 41, 55, 0.85);
+        min-height: 280px;
+        max-height: 520px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      body.has-result .plot-wrapper {
+        background: #111;
+        border-color: rgba(255, 255, 255, 0.08);
+        box-shadow:
+          0 15px 38px rgba(0, 0, 0, 0.9),
+          0 0 0 1px rgba(31, 41, 55, 0.75);
+      }
+
+      .plot-img {
+        width: 100%;
+        height: auto;
+        max-height: 500px;
+        border-radius: 12px;
+        display: block;
+      }
+
+      .empty-state {
+        font-size: 0.8rem;
+        color: var(--neutral-dark-text-secondary);
+        text-align: center;
+        padding: 40px 8px;
+      }
+
+      footer {
+        max-width: 1120px;
+        margin: 0 auto 14px;
+        padding: 0 16px;
+        font-size: 0.7rem;
+        color: var(--neutral-dark-text-secondary);
+      }
+
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        font-size: 0.72rem;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.7);
+        border: 1px solid rgba(148, 163, 184, 0.5);
+        color: #f4ecf5;
+      }
+    </style>
+  </head>
+  <body class="{% if result %}has-result{% endif %}">
+    <header>
+      <div class="header-inner">
+        <div class="header-title-row">
+          <div class="logo-pill">IF</div>
+          <div>
+            <div class="header-title">IFOTOM QA – Cuvette Segmentation</div>
+            <div class="header-subtitle-main">
+              Avaliação visual de cubetas: cuvette, líquido e bolhas via YOLO.
+            </div>
+          </div>
+        </div>
+        <div class="header-badge">
+          Backend Python · FastAPI · YOLO Segmentation
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="layout">
+        <!-- CARD UPLOAD -->
+        <section class="card card--upload">
+          <h2>1. Enviar imagem da cubeta</h2>
+          <p>
+            Selecione uma imagem (JPG, PNG ou HEIC) da cubeta. O modelo irá segmentar
+            cuvette, líquido e bolhas e gerar uma visão de qualidade.
+          </p>
+
+          <form
+            method="post"
+            action="/"
+            enctype="multipart/form-data"
+            class="form-group"
+          >
+            <label class="file-drop">
+              <span class="title">Clique para escolher a imagem</span>
+              <span class="hint">
+                ou arraste um arquivo até aqui. Use uma foto focada na região da cubeta.
+              </span>
+              <input
+                type="file"
+                name="file"
+                accept="image/*"
+                onchange="document.getElementById('file-name').textContent = this.files[0] ? this.files[0].name : 'Nenhum arquivo selecionado';"
+              />
+            </label>
+
+            <div id="file-name" class="selected-file">
+              Nenhum arquivo selecionado
+            </div>
+
+            <button type="submit" class="btn">Analisar imagem</button>
+          </form>
+
+          {% if error %}
+          <div class="error-box">
+            {{ error }}
+          </div>
+          {% endif %}
+        </section>
+
+        <!-- CARD RESULTADO -->
+        <section class="card card--result">
+          <h2>2. Resultado da análise de qualidade</h2>
+          <p>
+            Visualize a segmentação da cubeta e confira um resumo automático de qualidade
+            (presença de bolhas, ausência de líquido, etc.).
+          </p>
+
+          {% if result %}
+          <div class="result-header">
+            Arquivo analisado: <strong>{{ result.filename }}</strong>
+          </div>
+
+          <div class="qa-badges">
+            {% for flag in result.qa_flags %}
+            {% set level = flag.level %}
+            <div class="qa-badge qa-badge--{{ level }}">
+              <span class="qa-dot"></span>
+              <span>{{ flag.message }}</span>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="per-class-table">
+            <div class="per-class-row header">
+              <div>Classe</div>
+              <div>Instâncias</div>
+            </div>
+            {% for cls in result.per_class %}
+            <div class="per-class-row">
+              <div>{{ cls.name }}</div>
+              <div>{{ cls.count }}</div>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="plot-wrapper">
+            <img
+              src="data:image/png;base64,{{ result.plot_base64 }}"
+              alt="Imagem anotada pelo modelo"
+              class="plot-img"
+            />
+          </div>
+
+          {% else %}
+          <div class="empty-state">
+            Nenhuma análise realizada ainda.<br />
+            Envie uma imagem ao lado e clique em
+            <strong>Analisar imagem</strong> para visualizar a segmentação.
+          </div>
+          {% endif %}
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <p>
+        A mesma lógica de QA pode ser chamada via
+        <code>POST /predict</code>, enviando um campo <code>file</code> com a imagem.
+        A resposta JSON inclui as classes detectadas, flags de qualidade e a imagem
+        anotada em <code>plot_base64</code>.
+      </p>
+    </footer>
+  </body>
+</html>
