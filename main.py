@@ -3,13 +3,26 @@ import base64
 from collections import Counter
 
 import numpy as np
-import cv2
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from ultralytics import YOLO
+# ---------------------------------------------------------
+# Imports de dependências de visão computacional (robustos)
+# ---------------------------------------------------------
+
+try:
+    import cv2
+except ImportError as e:
+    print(f"[BOOT] ERRO importando cv2: {e}")
+    cv2 = None
+
+try:
+    from ultralytics import YOLO
+except ImportError as e:
+    print(f"[BOOT] ERRO importando ultralytics.YOLO: {e}")
+    YOLO = None
 
 # ---------------------------------------------------------
 # Carregamento do modelo (robusto para Cloud Run)
@@ -19,19 +32,25 @@ MODEL_PATH = os.getenv("MODEL_PATH", "models/yolo_seg_best.pt")
 
 model = None
 
-try:
-    if os.path.exists(MODEL_PATH):
-        print(f"[BOOT] Carregando modelo YOLO de: {MODEL_PATH}")
-        model = YOLO(MODEL_PATH)
-        print("[BOOT] Modelo carregado com sucesso.")
-    else:
-        print(
-            f"[BOOT] AVISO: modelo não encontrado em {MODEL_PATH}. "
-            f"O servidor irá subir, mas as requisições de análise vão falhar até o modelo ser configurado."
-        )
-except Exception as e:
-    print(f"[BOOT] ERRO ao carregar modelo em {MODEL_PATH}: {e}")
-    model = None
+if YOLO is None:
+    print(
+        "[BOOT] AVISO: ultralytics não está disponível. "
+        "O servidor vai subir, mas as análises de QA não vão funcionar."
+    )
+else:
+    try:
+        if os.path.exists(MODEL_PATH):
+            print(f"[BOOT] Carregando modelo YOLO de: {MODEL_PATH}")
+            model = YOLO(MODEL_PATH)
+            print("[BOOT] Modelo carregado com sucesso.")
+        else:
+            print(
+                f"[BOOT] AVISO: modelo não encontrado em {MODEL_PATH}. "
+                f"O servidor irá subir, mas as requisições de análise vão falhar até o modelo ser configurado."
+            )
+    except Exception as e:
+        print(f"[BOOT] ERRO ao carregar modelo em {MODEL_PATH}: {e}")
+        model = None
 
 # nomes de classe (cuvette, liquid, bubble, etc.)
 raw_names = getattr(model.model, "names", None) if model is not None else None
@@ -146,6 +165,12 @@ templates = Jinja2Templates(directory="templates")
 def run_segmentation(image_bytes: bytes) -> dict:
     """Roda a IA de segmentação na imagem e monta os dados para o front."""
 
+    if cv2 is None or YOLO is None:
+        raise ValueError(
+            "Dependências de visão computacional não estão disponíveis no servidor "
+            "(cv2/ultralytics). Verifique as dependências e o ambiente de deploy."
+        )
+
     if model is None:
         raise ValueError(
             "O modelo de QA não está carregado no servidor. "
@@ -255,7 +280,7 @@ async def upload_page(request: Request, file: UploadFile = File(...)):
             },
         )
     except ValueError as e:
-        # Erros "esperados" de entrada do usuário (arquivo vazio, formato inválido, modelo ausente)
+        # Erros "esperados" de entrada do usuário (arquivo vazio, formato inválido, modelo ausente, etc.)
         return templates.TemplateResponse(
             "index.html",
             {
