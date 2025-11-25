@@ -11,27 +11,38 @@ from fastapi.templating import Jinja2Templates
 
 from ultralytics import YOLO
 
+# ---------------------------------------------------------
+# Carregamento do modelo (robusto para Cloud Run)
+# ---------------------------------------------------------
 
 MODEL_PATH = os.getenv("MODEL_PATH", "models/yolo_seg_best.pt")
 
-if not os.path.exists(MODEL_PATH):
-    raise RuntimeError(
-        f"Modelo YOLO não encontrado em {MODEL_PATH}. "
-        f"Coloque seu yolo_seg_best.pt em 'models/' ou defina MODEL_PATH."
-    )
+model = None
 
-model = YOLO(MODEL_PATH)
+try:
+    if os.path.exists(MODEL_PATH):
+        print(f"[BOOT] Carregando modelo YOLO de: {MODEL_PATH}")
+        model = YOLO(MODEL_PATH)
+        print("[BOOT] Modelo carregado com sucesso.")
+    else:
+        print(
+            f"[BOOT] AVISO: modelo não encontrado em {MODEL_PATH}. "
+            f"O servidor irá subir, mas as requisições de análise vão falhar até o modelo ser configurado."
+        )
+except Exception as e:
+    print(f"[BOOT] ERRO ao carregar modelo em {MODEL_PATH}: {e}")
+    model = None
 
 # nomes de classe (cuvette, liquid, bubble, etc.)
-raw_names = getattr(model.model, "names", None)
+raw_names = getattr(model.model, "names", None) if model is not None else None
 if isinstance(raw_names, dict):
     CLASS_NAMES = {int(k): v for k, v in raw_names.items()}
 elif isinstance(raw_names, (list, tuple)):
     CLASS_NAMES = {i: n for i, n in enumerate(raw_names)}
 else:
+    # fallback simples se não conseguir ler do modelo
     CLASS_NAMES = {0: "cuvette", 1: "liquid", 2: "bubble"}
 
-from collections import Counter
 
 def _find_class_id(label: str):
     label = label.lower()
@@ -40,11 +51,13 @@ def _find_class_id(label: str):
             return cid
     return None
 
+
 ID_CUVETTE = _find_class_id("cuvette")
-ID_LIQUID  = _find_class_id("liquid")
-ID_BUBBLE  = _find_class_id("bubble")
-ID_GLARE   = _find_class_id("glare")
-ID_SMUDGE  = _find_class_id("smudge")
+ID_LIQUID = _find_class_id("liquid")
+ID_BUBBLE = _find_class_id("bubble")
+ID_GLARE = _find_class_id("glare")
+ID_SMUDGE = _find_class_id("smudge")
+
 
 def build_qa_analysis(counts: Counter) -> dict:
     """
@@ -92,7 +105,9 @@ def build_qa_analysis(counts: Counter) -> dict:
 
     # Mensagens finais
     if score == "ok":
-        summary = "Imagem adequada: cubeta e líquido detectados, sem bolhas ou artefatos relevantes."
+        summary = (
+            "Imagem adequada: cubeta e líquido detectados, sem bolhas ou artefatos relevantes."
+        )
         recommendation = "Pode seguir com a análise espectrofotométrica usando esta imagem."
     elif score == "attention":
         summary = "Imagem com atenção: há fatores que podem prejudicar a leitura."
@@ -115,6 +130,9 @@ def build_qa_analysis(counts: Counter) -> dict:
     }
 
 
+# ---------------------------------------------------------
+# FastAPI + Templates
+# ---------------------------------------------------------
 
 app = FastAPI(
     title="IFOTOM QA – YOLO Cuvette Segmentation",
@@ -125,11 +143,16 @@ app = FastAPI(
 templates = Jinja2Templates(directory="templates")
 
 
-
 def run_segmentation(image_bytes: bytes) -> dict:
     """Roda a IA de segmentação na imagem e monta os dados para o front."""
 
-    # 👇 Primeiro: trata caso de arquivo vazio
+    if model is None:
+        raise ValueError(
+            "O modelo de QA não está carregado no servidor. "
+            "Verifique a configuração do modelo (MODEL_PATH) ou contate o suporte."
+        )
+
+    # Primeiro: trata caso de arquivo vazio
     if not image_bytes:
         raise ValueError(
             "Nenhuma imagem foi recebida. "
@@ -192,7 +215,6 @@ def run_segmentation(image_bytes: bytes) -> dict:
     }
 
 
-
 @app.get("/", response_class=HTMLResponse)
 async def form_page(request: Request):
     """Página principal com formulário de upload."""
@@ -208,6 +230,7 @@ async def form_page(request: Request):
 
 @app.post("/", response_class=HTMLResponse)
 async def upload_page(request: Request, file: UploadFile = File(...)):
+    """Recebe a imagem via formulário e renderiza o resultado no HTML."""
     if file is None:
         return templates.TemplateResponse(
             "index.html",
@@ -232,16 +255,17 @@ async def upload_page(request: Request, file: UploadFile = File(...)):
             },
         )
     except ValueError as e:
-        # Erros "esperados" de entrada do usuário (arquivo vazio, formato inválido)
+        # Erros "esperados" de entrada do usuário (arquivo vazio, formato inválido, modelo ausente)
         return templates.TemplateResponse(
             "index.html",
             {
                 "request": request,
                 "result": None,
-                "error": str(e),   # já vem formatado
+                "error": str(e),
             },
         )
     except Exception as e:
+        # Erros inesperados
         return templates.TemplateResponse(
             "index.html",
             {
@@ -252,9 +276,9 @@ async def upload_page(request: Request, file: UploadFile = File(...)):
         )
 
 
-
 @app.post("/predict", response_class=JSONResponse)
 async def predict_api(file: UploadFile = File(...)):
+    """Endpoint JSON para uso via API (POST /predict com campo 'file')."""
     if file is None:
         raise HTTPException(status_code=400, detail="Nenhum arquivo enviado.")
 
