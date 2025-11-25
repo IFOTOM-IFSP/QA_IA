@@ -22,5 +22,5 @@ COPY . /app
 # Cloud Run usa essa porta
 EXPOSE $PORT
 
-# Usa python -m uvicorn (menos chance de dar "uvicorn: command not found")
-CMD python -m uvicorn main:app --host 0.0.0.0 --PORT $PORT
+CMD python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}
+
