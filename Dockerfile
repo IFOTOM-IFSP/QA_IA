@@ -20,8 +20,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY . /app
 
 # Cloud Run usa essa porta
-ENV PORT=8080
-EXPOSE 8080
+EXPOSE $PORT
 
 # Usa python -m uvicorn (menos chance de dar "uvicorn: command not found")
-CMD sh -c "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"
+CMD python -m uvicorn main:app --host 0.0.0.0 --PORT $PORT
