@@ -10,7 +10,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Diretório de trabalho
 WORKDIR /app
 
 # Instalar dependências Python
@@ -22,8 +21,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copiar o código da aplicação (main.py, templates/, models/, etc.)
 COPY . /app
 
-# Cloud Run usa a porta definida na env PORT (normalmente 8080)
+# Cloud Run *vai* injetar PORT (padrão 8080)
 EXPOSE 8080
 
-# Comando de start — respeita a env PORT do Cloud Run
+# Respeita a variável PORT do Cloud Run
 CMD sh -c "uvicorn main:app --host 0.0.0.0 --port \${PORT:-8080}"
