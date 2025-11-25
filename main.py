@@ -14,15 +14,17 @@ from fastapi.templating import Jinja2Templates
 
 try:
     import cv2
-except ImportError as e:
+except Exception as e:
     print(f"[BOOT] ERRO importando cv2: {e}")
     cv2 = None
 
+
 try:
     from ultralytics import YOLO
-except ImportError as e:
+except Exception as e:
     print(f"[BOOT] ERRO importando ultralytics.YOLO: {e}")
     YOLO = None
+
 
 # ---------------------------------------------------------
 # Carregamento do modelo (robusto para Cloud Run)
